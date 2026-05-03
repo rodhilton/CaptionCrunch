@@ -6,6 +6,7 @@ extension Notification.Name {
     static let importAudioRequested = Notification.Name("importAudioRequested")
     static let recordRequested = Notification.Name("recordRequested")
     static let copyAllRequested = Notification.Name("copyAllRequested")
+    static let clearTranscriptRequested = Notification.Name("clearTranscriptRequested")
     static let settingsRequested = Notification.Name("settingsRequested")
     static let runTranscriptActionRequested = Notification.Name("runTranscriptActionRequested")
     static let transcriptActionsChanged = Notification.Name("transcriptActionsChanged")
@@ -46,6 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func requestCopyAll(_ sender: Any?) {
         NotificationCenter.default.post(name: .copyAllRequested, object: nil)
+    }
+
+    @objc private func requestClearTranscript(_ sender: Any?) {
+        NotificationCenter.default.post(name: .clearTranscriptRequested, object: nil)
     }
 
     @objc private func requestTranscriptAction(_ sender: NSMenuItem) {
@@ -151,8 +156,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !actions.isEmpty else { return }
 
         menu.addItem(NSMenuItem.separator())
-        for action in actions {
-            let item = menu.addItem(withTitle: action.displayName, action: #selector(requestTranscriptAction(_:)), keyEquivalent: "")
+        for (index, action) in actions.enumerated() {
+            let item = menu.addItem(
+                withTitle: action.displayName,
+                action: #selector(requestTranscriptAction(_:)),
+                keyEquivalent: index < 9 ? String(index + 1) : ""
+            )
+            item.keyEquivalentModifierMask = index < 9 ? [.command] : []
             item.target = self
             item.representedObject = action.id
             if let symbolName = action.displaySymbolName {
@@ -170,6 +180,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let copyAllItem = menu.addItem(withTitle: "Copy All", action: #selector(requestCopyAll(_:)), keyEquivalent: "c")
         copyAllItem.keyEquivalentModifierMask = [.command, .shift]
         copyAllItem.target = self
+
+        menu.addItem(NSMenuItem.separator())
+
+        let clearItem = menu.addItem(withTitle: "Clear", action: #selector(requestClearTranscript(_:)), keyEquivalent: "")
+        clearItem.target = self
+
+        menu.addItem(NSMenuItem.separator())
 
         let selectAllItem = menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         selectAllItem.target = nil

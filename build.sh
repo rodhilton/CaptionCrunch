@@ -14,6 +14,7 @@ mkdir -p "$MACOS" "$RESOURCES" "$MODULE_CACHE"
 cp "$ROOT/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$RESOURCES/AppIcon.icns"
 cp "$ROOT/Resources/AppIconSource.png" "$RESOURCES/AppIconSource.png"
+cp "$ROOT/Resources/SampleTranscript.txt" "$RESOURCES/SampleTranscript.txt"
 
 xcrun swiftc \
   -target "$(uname -m)-apple-macosx13.0" \

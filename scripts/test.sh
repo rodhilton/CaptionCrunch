@@ -16,6 +16,11 @@ if grep -REn 'NSMenu\(title: "(View|Window)"|Start Dictation|Emoji and Symbols|A
   exit 1
 fi
 
+if ! grep -q 'clearTranscriptRequested' Sources/CaptionCrunchApp.swift || ! grep -q 'func clearTranscript' Sources/CaptionTranscriber.swift; then
+  echo "Edit > Clear must be wired through the transcriber." >&2
+  exit 1
+fi
+
 if grep -En 'Menu \{' Sources/ContentView.swift; then
   echo "Save action dropdown must use the AppKit popup button to avoid duplicate carets and preserve menu icons." >&2
   exit 1
@@ -23,6 +28,21 @@ fi
 
 if ! grep -Eq 'NSMenuItem\(' Sources/ContentView.swift || ! grep -Eq 'item.image = NSImage\(systemSymbolName: symbolName' Sources/ContentView.swift; then
   echo "Transcript action dropdown must build NSMenuItems with SF Symbol images." >&2
+  exit 1
+fi
+
+if ! grep -q 'setAccessibilityLabel("Transcript actions")' Sources/ContentView.swift || ! grep -q 'setAccessibilityLabel("Action icon")' Sources/ContentView.swift; then
+  echo "Custom AppKit action controls must expose accessibility labels." >&2
+  exit 1
+fi
+
+if ! grep -q 'testTranscriptAction' Sources/CaptionTranscriber.swift || ! grep -q 'SampleTranscript.txt' build.sh || ! test -f Resources/SampleTranscript.txt; then
+  echo "Transcript action testing must use the bundled sample transcript." >&2
+  exit 1
+fi
+
+if ! grep -q 'keyEquivalent: index < 9 ? String(index + 1)' Sources/CaptionCrunchApp.swift; then
+  echo "Transcript actions in the File menu must receive Cmd-number shortcuts." >&2
   exit 1
 fi
 
@@ -42,10 +62,12 @@ xcrun swiftc \
 APP="$ROOT/build/Caption Crunch.app"
 EXECUTABLE="$APP/Contents/MacOS/CaptionCrunch"
 ICON="$APP/Contents/Resources/AppIcon.icns"
+SAMPLE_TRANSCRIPT="$APP/Contents/Resources/SampleTranscript.txt"
 
 test -d "$APP"
 test -x "$EXECUTABLE"
 test -f "$ICON"
+test -f "$SAMPLE_TRANSCRIPT"
 
 /usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$APP/Contents/Info.plist" | grep -qx "AppIcon"
 sips -g hasAlpha "$ROOT/Resources/AppIconSource.png" | grep -q "hasAlpha: yes"

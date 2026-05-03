@@ -36,6 +36,8 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         }
     }
     @Published private(set) var isRunningTranscriptAction = false
+    @Published private(set) var runningTranscriptActionID: UUID?
+    @Published private(set) var isRunningTranscriptActionTest = false
     @Published var showingAlert = false
     @Published var alertMessage = ""
     @Published var showOverlayWhenMinimized: Bool {
@@ -221,11 +223,53 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
+    func clearTranscript() {
+        guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Clear transcript?"
+        alert.informativeText = "This will erase the current transcript and reset Caption Crunch as if no recording or import has been started."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Clear")
+        alert.addButton(withTitle: "Cancel")
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        if isRecording {
+            stop()
+        } else if isImporting {
+            stopImport()
+        }
+
+        resetTranscriptState()
+    }
+
     func runTranscriptAction(id: UUID) {
         guard !isRunningTranscriptAction else { return }
         guard let action = transcriptActions.first(where: { $0.id == id }) else { return }
         let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        runTranscriptAction(action, transcript: text, audioURL: currentAudioURL, title: action.displayName, isTest: false)
+    }
+
+    func testTranscriptAction(id: UUID) {
+        guard !isRunningTranscriptAction else { return }
+        guard let action = transcriptActions.first(where: { $0.id == id }) else { return }
+        let text = Self.sampleTranscript()
+        runTranscriptAction(action, transcript: text, audioURL: nil, title: "Test: \(action.displayName)", isTest: true)
+    }
+
+    func isTestingTranscriptAction(id: UUID) -> Bool {
+        runningTranscriptActionID == id && isRunningTranscriptActionTest
+    }
+
+    private func runTranscriptAction(
+        _ action: TranscriptAction,
+        transcript text: String,
+        audioURL: URL?,
+        title: String,
+        isTest: Bool
+    ) {
         let commandText = action.command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !commandText.isEmpty else {
             present("That transcript action does not have a command.")
@@ -233,25 +277,29 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         }
 
         isRunningTranscriptAction = true
+        runningTranscriptActionID = action.id
+        isRunningTranscriptActionTest = isTest
         Task {
             do {
-                let output = try await runAction(action, transcript: text)
+                let output = try await runAction(action, transcript: text, audioURL: audioURL)
                 TranscriptActionResultWindowController.shared.show(
-                    title: action.displayName,
+                    title: title,
                     output: output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "(No output)" : output
                 )
             } catch {
                 present("Could not run \(action.displayName): \(error.localizedDescription)")
             }
             isRunningTranscriptAction = false
+            runningTranscriptActionID = nil
+            isRunningTranscriptActionTest = false
         }
     }
 
-    private func runAction(_ action: TranscriptAction, transcript: String) async throws -> String {
+    private func runAction(_ action: TranscriptAction, transcript: String, audioURL: URL?) async throws -> String {
         let prepared = try TranscriptActionCommand.make(
             action: action,
             transcript: transcript,
-            audioURL: currentAudioURL
+            audioURL: audioURL
         )
         defer {
             if let tempFileURL = prepared.tempFileURL {
@@ -290,6 +338,20 @@ final class CaptionTranscriber: NSObject, ObservableObject {
 
             return cleanOutput
         }.value
+    }
+
+    private static func sampleTranscript() -> String {
+        guard let url = Bundle.main.url(forResource: "SampleTranscript", withExtension: "txt"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else {
+            return """
+            Alex: Before we start, we need to decide whether to follow the river road or cut through the old orchard.
+
+            Morgan: The orchard is faster, but the map says people hear bells there after sunset.
+
+            Mara: I saw lanterns moving between the trees. One of them stopped when I said the miller's name.
+            """
+        }
+        return text
     }
 
     @discardableResult
@@ -1028,6 +1090,21 @@ final class CaptionTranscriber: NSObject, ObservableObject {
 
     private func normalizedTranscriptSnapshot() -> String {
         transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func resetTranscriptState() {
+        transcript = ""
+        committedTranscript = ""
+        currentPartialTranscript = ""
+        importBaseTranscript = ""
+        importProgress = 0
+        importStatusText = ""
+        listeningNote = ""
+        savedTranscriptSnapshot = ""
+        transcriptMode = .empty
+        clearTemporaryRecording()
+        currentAudioURL = nil
+        overlayController.update(text: "")
     }
 
     private func prepareForMode(_ newMode: TranscriptMode) -> Bool {

@@ -90,6 +90,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .copyAllRequested)) { _ in
             transcriber.copyAll()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .clearTranscriptRequested)) { _ in
+            transcriber.clearTranscript()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .importAudioRequested)) { _ in
             transcriber.importAudio()
         }
@@ -178,6 +181,9 @@ private struct ActionPopupButton: NSViewRepresentable {
         button.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Show transcript actions")
         button.imagePosition = .imageOnly
         button.contentTintColor = .white
+        button.toolTip = "Show transcript actions"
+        button.setAccessibilityLabel("Transcript actions")
+        button.setAccessibilityHelp("Shows custom transcript actions.")
         button.target = context.coordinator
         button.action = #selector(Coordinator.showMenu(_:))
         return button
@@ -188,6 +194,7 @@ private struct ActionPopupButton: NSViewRepresentable {
         context.coordinator.runAction = runAction
         button.isEnabled = isEnabled
         button.contentTintColor = isEnabled ? .white : .secondaryLabelColor
+        button.setAccessibilityEnabled(isEnabled)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -205,12 +212,13 @@ private struct ActionPopupButton: NSViewRepresentable {
 
         @objc func showMenu(_ sender: NSButton) {
             let menu = NSMenu()
-            for action in actions {
+            for (index, action) in actions.enumerated() {
                 let item = NSMenuItem(
                     title: action.displayName,
                     action: #selector(runMenuAction(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: Self.keyEquivalent(for: index)
                 )
+                item.keyEquivalentModifierMask = Self.keyEquivalentModifierMask(for: index)
                 item.target = self
                 item.representedObject = action.id
                 if let symbolName = action.displaySymbolName {
@@ -230,6 +238,14 @@ private struct ActionPopupButton: NSViewRepresentable {
             if let id = sender.representedObject as? UUID {
                 runAction(id)
             }
+        }
+
+        private static func keyEquivalent(for index: Int) -> String {
+            index < 9 ? String(index + 1) : ""
+        }
+
+        private static func keyEquivalentModifierMask(for index: Int) -> NSEvent.ModifierFlags {
+            index < 9 ? [.command] : []
         }
     }
 }
@@ -443,11 +459,28 @@ private struct TranscriptActionsPreferencesView: View {
 
                                     TextField("Name", text: $action.name)
 
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .opacity(transcriber.isTestingTranscriptAction(id: action.id) ? 1 : 0)
+                                        .frame(width: 18, height: 18)
+
+                                    Button {
+                                        transcriber.testTranscriptAction(id: action.id)
+                                    } label: {
+                                        Label("Test", systemImage: "play.circle")
+                                    }
+                                    .disabled(
+                                        transcriber.isRunningTranscriptAction ||
+                                        action.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    )
+                                    .help("Run this action with the sample transcript")
+
                                     Button(role: .destructive) {
                                         transcriber.transcriptActions.removeAll { $0.id == action.id }
                                     } label: {
                                         Image(systemName: "trash")
                                     }
+                                    .accessibilityLabel("Delete action")
                                     .help("Delete action")
                                 }
 
@@ -481,6 +514,9 @@ private struct IconSymbolPicker: NSViewRepresentable {
         button.action = #selector(Coordinator.changed(_:))
         button.imagePosition = .imageOnly
         button.bezelStyle = .rounded
+        button.toolTip = "Choose an action icon"
+        button.setAccessibilityLabel("Action icon")
+        button.setAccessibilityHelp("Chooses the icon shown for this transcript action.")
         context.coordinator.configure(button)
         return button
     }
@@ -511,6 +547,8 @@ private struct IconSymbolPicker: NSViewRepresentable {
                 let item = NSMenuItem(title: " ", action: nil, keyEquivalent: "")
                 item.representedObject = symbol
                 item.image = image(for: symbol)
+                item.toolTip = accessibilityName(for: symbol)
+                item.setAccessibilityLabel(accessibilityName(for: symbol))
                 button.menu?.addItem(item)
             }
 
@@ -527,6 +565,13 @@ private struct IconSymbolPicker: NSViewRepresentable {
         private func image(for symbol: String) -> NSImage? {
             let name = symbol.isEmpty ? "nosign" : symbol
             return NSImage(systemSymbolName: name, accessibilityDescription: symbol.isEmpty ? "No Icon" : symbol)
+        }
+
+        private func accessibilityName(for symbol: String) -> String {
+            if symbol.isEmpty { return "No icon" }
+            return symbol
+                .replacingOccurrences(of: ".", with: " ")
+                .replacingOccurrences(of: "_", with: " ")
         }
     }
 }
