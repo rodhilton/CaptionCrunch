@@ -11,17 +11,17 @@ bash -n scripts/build_dmg.sh
 
 plutil -lint Info.plist >/dev/null
 
-if rg -n 'NSMenu\(title: "(View|Window)"|Start Dictation|Emoji and Symbols|Autofill|AutoFill' Sources; then
+if grep -REn 'NSMenu\(title: "(View|Window)"|Start Dictation|Emoji and Symbols|Autofill|AutoFill' Sources; then
   echo "Unexpected default editable-text or window/view menu item found." >&2
   exit 1
 fi
 
-if rg -n 'Menu \{' Sources/ContentView.swift; then
+if grep -En 'Menu \{' Sources/ContentView.swift; then
   echo "Save action dropdown must use the AppKit popup button to avoid duplicate carets and preserve menu icons." >&2
   exit 1
 fi
 
-if ! rg -q 'NSMenuItem\(' Sources/ContentView.swift || ! rg -q 'item.image = NSImage\(systemSymbolName: symbolName' Sources/ContentView.swift; then
+if ! grep -Eq 'NSMenuItem\(' Sources/ContentView.swift || ! grep -Eq 'item.image = NSImage\(systemSymbolName: symbolName' Sources/ContentView.swift; then
   echo "Transcript action dropdown must build NSMenuItems with SF Symbol images." >&2
   exit 1
 fi
