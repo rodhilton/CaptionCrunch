@@ -1,0 +1,15 @@
+.build/
+build/
+dist/
+.DS_Store
+*.dmg
+*.xcresult
+*.swp
+*.tmp
+.env
+.env.*
+.codex/
+.claude/
+.cursor/
+.aider*
+.continue/
