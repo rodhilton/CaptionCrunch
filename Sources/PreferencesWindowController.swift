@@ -11,11 +11,11 @@ final class PreferencesWindowController {
         if window == nil {
             let view = PreferencesView()
                 .environmentObject(transcriber)
-                .frame(width: 460)
+                .frame(width: 620, height: 420)
 
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 460, height: 220),
-                styleMask: [.titled, .closable],
+                contentRect: NSRect(x: 0, y: 0, width: 620, height: 420),
+                styleMask: [.titled, .closable, .resizable],
                 backing: .buffered,
                 defer: false
             )

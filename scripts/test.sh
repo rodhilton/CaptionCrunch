@@ -16,6 +16,16 @@ if rg -n 'NSMenu\(title: "(View|Window)"|Start Dictation|Emoji and Symbols|Autof
   exit 1
 fi
 
+if rg -n 'Menu \{' Sources/ContentView.swift; then
+  echo "Save action dropdown must use the AppKit popup button to avoid duplicate carets and preserve menu icons." >&2
+  exit 1
+fi
+
+if ! rg -q 'NSMenuItem\(' Sources/ContentView.swift || ! rg -q 'item.image = NSImage\(systemSymbolName: symbolName' Sources/ContentView.swift; then
+  echo "Transcript action dropdown must build NSMenuItems with SF Symbol images." >&2
+  exit 1
+fi
+
 mkdir -p "$ROOT/build"
 mkdir -p "$ROOT/.build/module-cache"
 xcrun swiftc \

@@ -25,20 +25,6 @@ struct ContentView: View {
 
                 Spacer()
 
-                Button {
-                    transcriber.importAudio()
-                } label: {
-                    Label("Import Audio...", systemImage: "waveform")
-                }
-                .disabled(transcriber.isRecording || transcriber.isImporting)
-
-                Button {
-                    transcriber.saveTranscript()
-                } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .disabled(transcriber.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
                 if transcriber.isRecording || transcriber.isImporting {
                     Button {
                         transcriber.togglePause()
@@ -56,10 +42,18 @@ struct ContentView: View {
                     .keyboardShortcut(.cancelAction)
                 } else {
                     Button {
+                        transcriber.importAudio()
+                    } label: {
+                        Label("Import Audio...", systemImage: "waveform")
+                    }
+
+                    Button {
                         transcriber.start()
                     } label: {
                         Label("Record", systemImage: "record.circle")
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
                     .keyboardShortcut(.defaultAction)
                     .disabled(transcriber.isImporting)
                 }
@@ -69,6 +63,21 @@ struct ContentView: View {
             .background(.bar)
 
             TranscriptTextView(text: transcriber.transcript)
+
+            HStack(spacing: 10) {
+                Spacer()
+
+                ProgressView()
+                    .controlSize(.small)
+                    .opacity(transcriber.isRunningTranscriptAction ? 1 : 0)
+                    .frame(width: 20, height: 20)
+
+                SaveActionControl()
+                    .environmentObject(transcriber)
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
+            .background(.bar)
         }
         .alert("Caption Crunch", isPresented: $transcriber.showingAlert) {
             Button("OK", role: .cancel) {}
@@ -84,10 +93,144 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .importAudioRequested)) { _ in
             transcriber.importAudio()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .recordRequested)) { _ in
+            transcriber.start()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .runTranscriptActionRequested)) { notification in
+            if let id = notification.object as? UUID {
+                transcriber.runTranscriptAction(id: id)
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .settingsRequested)) { _ in
             PreferencesWindowController.shared.show(transcriber: transcriber)
         }
         .background(WindowCloseHandler(transcriber: transcriber))
+    }
+}
+
+private struct SaveActionControl: View {
+    @EnvironmentObject private var transcriber: CaptionTranscriber
+
+    private var hasTranscript: Bool {
+        !transcriber.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isEnabled: Bool {
+        hasTranscript && !transcriber.isRunningTranscriptAction
+    }
+
+    var body: some View {
+        if transcriber.transcriptActions.isEmpty {
+            Button {
+                transcriber.saveTranscript()
+            } label: {
+                Label("Save", systemImage: "square.and.arrow.down")
+            }
+            .disabled(!hasTranscript)
+        } else {
+            HStack(spacing: 0) {
+                Button {
+                    transcriber.saveTranscript()
+                } label: {
+                    Label("Save", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderless)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .foregroundStyle(isEnabled ? Color.white : Color.secondary)
+                .disabled(!hasTranscript)
+
+                Divider()
+                    .frame(height: 18)
+                    .overlay(isEnabled ? Color.white.opacity(0.35) : Color(nsColor: .separatorColor))
+
+                ActionPopupButton(
+                    actions: transcriber.transcriptActions,
+                    isEnabled: isEnabled,
+                    runAction: { id in
+                        transcriber.runTranscriptAction(id: id)
+                    }
+                )
+                .frame(width: 26, height: 24)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isEnabled ? Color.accentColor : Color(nsColor: .controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isEnabled ? Color.accentColor.opacity(0.9) : Color(nsColor: .separatorColor), lineWidth: 0.75)
+            )
+            .shadow(color: isEnabled ? Color.black.opacity(0.16) : .clear, radius: 1, y: 1)
+        }
+    }
+}
+
+private struct ActionPopupButton: NSViewRepresentable {
+    let actions: [TranscriptAction]
+    let isEnabled: Bool
+    let runAction: (UUID) -> Void
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton()
+        button.isBordered = false
+        button.bezelStyle = .regularSquare
+        button.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Show transcript actions")
+        button.imagePosition = .imageOnly
+        button.contentTintColor = .white
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.showMenu(_:))
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.actions = actions
+        context.coordinator.runAction = runAction
+        button.isEnabled = isEnabled
+        button.contentTintColor = isEnabled ? .white : .secondaryLabelColor
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(actions: actions, runAction: runAction)
+    }
+
+    final class Coordinator: NSObject {
+        var actions: [TranscriptAction]
+        var runAction: (UUID) -> Void
+
+        init(actions: [TranscriptAction], runAction: @escaping (UUID) -> Void) {
+            self.actions = actions
+            self.runAction = runAction
+        }
+
+        @objc func showMenu(_ sender: NSButton) {
+            let menu = NSMenu()
+            for action in actions {
+                let item = NSMenuItem(
+                    title: action.displayName,
+                    action: #selector(runMenuAction(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = action.id
+                if let symbolName = action.displaySymbolName {
+                    item.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: action.displayName)
+                }
+                menu.addItem(item)
+            }
+
+            menu.popUp(
+                positioning: nil,
+                at: NSPoint(x: 0, y: sender.bounds.maxY + 4),
+                in: sender
+            )
+        }
+
+        @objc private func runMenuAction(_ sender: NSMenuItem) {
+            if let id = sender.representedObject as? UUID {
+                runAction(id)
+            }
+        }
     }
 }
 
@@ -211,28 +354,180 @@ struct PreferencesView: View {
     @EnvironmentObject private var transcriber: CaptionTranscriber
 
     var body: some View {
-        Form {
-            Picker("Input device", selection: $transcriber.selectedDeviceID) {
-                ForEach(transcriber.devices) { device in
-                    Text(device.name).tag(device.id)
-                }
-            }
-            .disabled(transcriber.isRecording)
-
-            HStack {
-                Spacer()
-                Button {
-                    transcriber.refreshDevices()
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+        TabView {
+            Form {
+                Picker("Input device", selection: $transcriber.selectedDeviceID) {
+                    ForEach(transcriber.devices) { device in
+                        Text(device.name).tag(device.id)
+                    }
                 }
                 .disabled(transcriber.isRecording)
+
+                HStack {
+                    Spacer()
+                    Button {
+                        transcriber.refreshDevices()
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(transcriber.isRecording)
+                }
+
+                Toggle("Show captions on screen when minimized", isOn: $transcriber.showOverlayWhenMinimized)
+            }
+            .formStyle(.grouped)
+            .padding(18)
+            .tabItem { Text("General") }
+
+            TranscriptActionsPreferencesView()
+                .environmentObject(transcriber)
+                .padding(18)
+                .tabItem { Text("Actions") }
+        }
+    }
+}
+
+private struct TranscriptActionsPreferencesView: View {
+    @EnvironmentObject private var transcriber: CaptionTranscriber
+    private let symbolChoices = [
+        "",
+        "sparkles",
+        "wand.and.stars",
+        "text.quote",
+        "doc.text",
+        "brain",
+        "list.bullet",
+        "checklist",
+        "book.closed",
+        "pencil.and.outline",
+        "lightbulb",
+        "magnifyingglass",
+        "arrow.triangle.2.circlepath",
+        "terminal",
+        "gearshape"
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Transcript Actions")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    transcriber.transcriptActions.append(
+                        TranscriptAction(name: "New Action", command: "")
+                    )
+                } label: {
+                    Label("Add", systemImage: "plus")
+                }
             }
 
-            Toggle("Show captions on screen when minimized", isOn: $transcriber.showOverlayWhenMinimized)
+            Text("Actions appear in the Save dropdown and File menu. Use %f for a temporary transcript file or %t for the transcript text.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if transcriber.transcriptActions.isEmpty {
+                Spacer()
+                Text("No custom actions yet.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach($transcriber.transcriptActions) { $action in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    IconSymbolPicker(symbolName: $action.symbolName, choices: symbolChoices)
+                                        .frame(width: 42, height: 26)
+
+                                    TextField("Name", text: $action.name)
+
+                                    Button(role: .destructive) {
+                                        transcriber.transcriptActions.removeAll { $0.id == action.id }
+                                    } label: {
+                                        Image(systemName: "trash")
+                                    }
+                                    .help("Delete action")
+                                }
+
+                                TextField("Command", text: $action.command, axis: .vertical)
+                                    .lineLimit(5...10)
+                                    .font(.system(.body, design: .monospaced))
+                                    .frame(minHeight: 120, alignment: .top)
+
+                                Text("Choose an icon for menus and the Save dropdown.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(10)
+                            .background(Color(nsColor: .controlBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                    }
+                }
+            }
         }
-        .formStyle(.grouped)
-        .padding(18)
+    }
+}
+
+private struct IconSymbolPicker: NSViewRepresentable {
+    @Binding var symbolName: String
+    let choices: [String]
+
+    func makeNSView(context: Context) -> NSPopUpButton {
+        let button = NSPopUpButton(frame: .zero, pullsDown: false)
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.changed(_:))
+        button.imagePosition = .imageOnly
+        button.bezelStyle = .rounded
+        context.coordinator.configure(button)
+        return button
+    }
+
+    func updateNSView(_ button: NSPopUpButton, context: Context) {
+        context.coordinator.symbolName = $symbolName
+        context.coordinator.choices = choices
+        context.coordinator.configure(button)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(symbolName: $symbolName, choices: choices)
+    }
+
+    final class Coordinator: NSObject {
+        var symbolName: Binding<String>
+        var choices: [String]
+
+        init(symbolName: Binding<String>, choices: [String]) {
+            self.symbolName = symbolName
+            self.choices = choices
+        }
+
+        func configure(_ button: NSPopUpButton) {
+            button.removeAllItems()
+
+            for symbol in choices {
+                let item = NSMenuItem(title: " ", action: nil, keyEquivalent: "")
+                item.representedObject = symbol
+                item.image = image(for: symbol)
+                button.menu?.addItem(item)
+            }
+
+            let selected = choices.contains(symbolName.wrappedValue) ? symbolName.wrappedValue : ""
+            if let item = button.itemArray.first(where: { ($0.representedObject as? String) == selected }) {
+                button.select(item)
+            }
+        }
+
+        @objc func changed(_ sender: NSPopUpButton) {
+            symbolName.wrappedValue = sender.selectedItem?.representedObject as? String ?? ""
+        }
+
+        private func image(for symbol: String) -> NSImage? {
+            let name = symbol.isEmpty ? "nosign" : symbol
+            return NSImage(systemSymbolName: name, accessibilityDescription: symbol.isEmpty ? "No Icon" : symbol)
+        }
     }
 }
 

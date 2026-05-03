@@ -4,8 +4,11 @@ import SwiftUI
 extension Notification.Name {
     static let saveTranscriptRequested = Notification.Name("saveTranscriptRequested")
     static let importAudioRequested = Notification.Name("importAudioRequested")
+    static let recordRequested = Notification.Name("recordRequested")
     static let copyAllRequested = Notification.Name("copyAllRequested")
     static let settingsRequested = Notification.Name("settingsRequested")
+    static let runTranscriptActionRequested = Notification.Name("runTranscriptActionRequested")
+    static let transcriptActionsChanged = Notification.Name("transcriptActionsChanged")
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -13,6 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.main.async {
             self.installMainMenu()
         }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(transcriptActionsDidChange(_:)),
+            name: .transcriptActionsChanged,
+            object: nil
+        )
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -31,12 +40,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NotificationCenter.default.post(name: .importAudioRequested, object: nil)
     }
 
+    @objc private func requestRecord(_ sender: Any?) {
+        NotificationCenter.default.post(name: .recordRequested, object: nil)
+    }
+
     @objc private func requestCopyAll(_ sender: Any?) {
         NotificationCenter.default.post(name: .copyAllRequested, object: nil)
     }
 
+    @objc private func requestTranscriptAction(_ sender: NSMenuItem) {
+        if let id = sender.representedObject as? UUID {
+            NotificationCenter.default.post(name: .runTranscriptActionRequested, object: id)
+        }
+    }
+
     @objc private func showSettings(_ sender: Any?) {
         NotificationCenter.default.post(name: .settingsRequested, object: nil)
+    }
+
+    @objc private func showTranscriptActionsHelp(_ sender: Any?) {
+        Task { @MainActor in
+            TranscriptActionsHelpWindowController.shared.show()
+        }
+    }
+
+    @objc private func transcriptActionsDidChange(_ notification: Notification) {
+        installMainMenu()
     }
 
     private func installMainMenu() {
@@ -61,10 +90,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let fileItem = NSMenuItem()
         let fileMenu = NSMenu(title: "File")
+        fileMenu.delegate = self
+        let recordItem = fileMenu.addItem(withTitle: "Record", action: #selector(requestRecord(_:)), keyEquivalent: "r")
+        recordItem.target = self
         let importItem = fileMenu.addItem(withTitle: "Import Audio...", action: #selector(requestImportAudio(_:)), keyEquivalent: "i")
         importItem.target = self
         let saveItem = fileMenu.addItem(withTitle: "Save Transcript...", action: #selector(requestSaveTranscript(_:)), keyEquivalent: "s")
         saveItem.target = self
+        addTranscriptActions(to: fileMenu)
         fileItem.submenu = fileMenu
         mainMenu.addItem(fileItem)
 
@@ -77,8 +110,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let helpItem = NSMenuItem()
         let helpMenu = NSMenu(title: "Help")
-        helpMenu.addItem(withTitle: "\(appName) Help", action: nil, keyEquivalent: "")
-            .isEnabled = false
+        let actionsHelp = helpMenu.addItem(withTitle: "Transcript Actions Help", action: #selector(showTranscriptActionsHelp(_:)), keyEquivalent: "")
+        actionsHelp.target = self
         helpItem.submenu = helpMenu
         mainMenu.addItem(helpItem)
 
@@ -88,12 +121,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu.title == "Edit" {
             rebuildEditMenu(menu)
+        } else if menu.title == "File" {
+            rebuildFileMenu(menu)
         }
     }
 
     func menuWillOpen(_ menu: NSMenu) {
         if menu.title == "Edit" {
             rebuildEditMenu(menu)
+        } else if menu.title == "File" {
+            rebuildFileMenu(menu)
+        }
+    }
+
+    private func rebuildFileMenu(_ menu: NSMenu) {
+        menu.removeAllItems()
+
+        let recordItem = menu.addItem(withTitle: "Record", action: #selector(requestRecord(_:)), keyEquivalent: "r")
+        recordItem.target = self
+        let importItem = menu.addItem(withTitle: "Import Audio...", action: #selector(requestImportAudio(_:)), keyEquivalent: "i")
+        importItem.target = self
+        let saveItem = menu.addItem(withTitle: "Save Transcript...", action: #selector(requestSaveTranscript(_:)), keyEquivalent: "s")
+        saveItem.target = self
+        addTranscriptActions(to: menu)
+    }
+
+    private func addTranscriptActions(to menu: NSMenu) {
+        let actions = TranscriptActionStore.load()
+        guard !actions.isEmpty else { return }
+
+        menu.addItem(NSMenuItem.separator())
+        for action in actions {
+            let item = menu.addItem(withTitle: action.displayName, action: #selector(requestTranscriptAction(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = action.id
+            if let symbolName = action.displaySymbolName {
+                item.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: action.displayName)
+            }
         }
     }
 

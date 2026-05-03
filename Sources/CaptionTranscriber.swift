@@ -30,6 +30,12 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     @Published private(set) var isImporting = false
     @Published private(set) var importProgress: Double = 0
     @Published private(set) var importStatusText = ""
+    @Published var transcriptActions: [TranscriptAction] {
+        didSet {
+            TranscriptActionStore.save(transcriptActions)
+        }
+    }
+    @Published private(set) var isRunningTranscriptAction = false
     @Published var showingAlert = false
     @Published var alertMessage = ""
     @Published var showOverlayWhenMinimized: Bool {
@@ -93,6 +99,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     override init() {
         selectedDeviceID = UserDefaults.standard.string(forKey: Self.selectedDeviceKey) ?? ""
         showOverlayWhenMinimized = UserDefaults.standard.object(forKey: Self.showOverlayKey) as? Bool ?? true
+        transcriptActions = TranscriptActionStore.load()
         super.init()
         refreshDevices()
     }
@@ -206,6 +213,73 @@ final class CaptionTranscriber: NSObject, ObservableObject {
 
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    func runTranscriptAction(id: UUID) {
+        guard !isRunningTranscriptAction else { return }
+        guard let action = transcriptActions.first(where: { $0.id == id }) else { return }
+        let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let commandText = action.command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !commandText.isEmpty else {
+            present("That transcript action does not have a command.")
+            return
+        }
+
+        isRunningTranscriptAction = true
+        Task {
+            do {
+                let output = try await runAction(action, transcript: text)
+                TranscriptActionResultWindowController.shared.show(
+                    title: action.displayName,
+                    output: output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "(No output)" : output
+                )
+            } catch {
+                present("Could not run \(action.displayName): \(error.localizedDescription)")
+            }
+            isRunningTranscriptAction = false
+        }
+    }
+
+    private func runAction(_ action: TranscriptAction, transcript: String) async throws -> String {
+        let prepared = try TranscriptActionCommand.make(action: action, transcript: transcript)
+        defer {
+            if let tempFileURL = prepared.tempFileURL {
+                try? FileManager.default.removeItem(at: tempFileURL)
+            }
+        }
+
+        return try await Task.detached {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-lc", prepared.command]
+
+            let outputPipe = Pipe()
+            let errorPipe = Pipe()
+            process.standardOutput = outputPipe
+            process.standardError = errorPipe
+
+            try process.run()
+            process.waitUntilExit()
+
+            let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let errorOutput = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let cleanOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cleanError = errorOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if process.terminationStatus != 0 {
+                let combined = [cleanOutput, cleanError]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n\n")
+                throw NSError(
+                    domain: "CaptionCrunch.TranscriptAction",
+                    code: Int(process.terminationStatus),
+                    userInfo: [NSLocalizedDescriptionKey: combined.isEmpty ? "Command exited with status \(process.terminationStatus)." : combined]
+                )
+            }
+
+            return cleanOutput
+        }.value
     }
 
     @discardableResult

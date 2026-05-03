@@ -1,8 +1,54 @@
+<img src="Resources/AppIconSource.png" align="left" width="104" alt="Caption Crunch app icon">
+
 # Caption Crunch
 
-Caption Crunch is a small native macOS app for turning speech from a chosen audio input into live, readable captions. It is meant for tabletop sessions, calls, streams, accessibility experiments, or any situation where you want a quick local caption window without running a full meeting app.
+**Live captions and transcript tools for macOS.**
 
-The app uses macOS audio capture and Apple Speech recognition. It lets you choose an input device, start live transcription, pause or stop recording, copy/select the transcript, save it as plain text, and optionally show a transparent on-screen caption overlay when the main window is minimized.
+Caption Crunch is a small native Mac app that turns speech from a chosen input device into live, readable captions. It is built for tabletop games, calls, streams, interviews, accessibility experiments, and any moment where you want a local caption window without opening a full meeting app.
+
+Caption Crunch is local-first: transcripts stay on your Mac, the app does not upload your audio or text to a cloud service, and normal recording/import transcription does not require an internet connection.
+
+[Download the latest DMG](../../releases/latest/download/CaptionCrunch-0.1.0.dmg)  
+[View all releases](../../releases)
+
+<br clear="left">
+
+## Why Use It?
+
+- **Caption speech live.** Pick a Mac input device, press Record, and watch the transcript appear as people talk.
+- **Import existing audio or video.** Drop in common media files and Caption Crunch transcribes the audio track.
+- **Keep the transcript readable.** Pause detection adds paragraph breaks, and the transcript auto-scrolls smoothly while new text arrives.
+- **Save or reuse the result.** Save plain text transcripts, copy the full log, or run custom commands against the transcript.
+- **Stay out of the way.** When minimized, Caption Crunch can show transparent on-screen captions at the edge of your display.
+- **Keep it local.** Audio and transcript text remain on your machine unless you explicitly run a custom action that sends them somewhere.
+
+## What It Does
+
+Caption Crunch uses macOS audio capture and Apple Speech recognition. Everything is designed around a simple transcript-first workflow:
+
+1. Choose an input in `Caption Crunch > Settings`.
+2. Press `Record` to start live transcription.
+3. Use `Pause` or `Stop` while recording.
+4. Save the transcript as plain text, or run a custom transcript action.
+
+For existing recordings, use `Import Audio...` to transcribe common audio and video formats. Video imports automatically extract the audio track first when possible.
+
+## Transcript Actions
+
+Caption Crunch can also run your own background commands against the current transcript. This makes it useful for AI summaries, cleanup scripts, publishing workflows, or anything else you can express as a command.
+
+Add actions in `Caption Crunch > Settings > Actions`. Each action has:
+
+- **Name:** shown in the Save dropdown and File menu.
+- **SF Symbol:** optional button/menu icon, such as `sparkles`, `wand.and.stars`, `doc.text`, or `text.quote`.
+- **Command:** the background command to run.
+
+Placeholders:
+
+- `%f` writes the transcript to a temporary text file and substitutes the shell-quoted file path.
+- `%t` substitutes the shell-quoted transcript text directly.
+
+When the command finishes, Caption Crunch opens a result window with copyable output and a Save button.
 
 ## Features
 
@@ -15,19 +61,37 @@ The app uses macOS audio capture and Apple Speech recognition. It lets you choos
 - Auto-scrolling transcript without jostling on partial recognition updates
 - Pause-based paragraph breaks for readability
 - Plain-text transcript export
+- Custom transcript actions that run background commands and show captured output
 - Optional transparent caption overlay when minimized
-- Animated red Dock icon waveform while actively recording
+- Animated Dock icon waveform while recording or importing
 - GitHub Actions CI and tagged-release DMG publishing
 
 ## Requirements
 
 - macOS 13 or newer
 - Apple Speech recognition availability for your locale
-- Xcode Command Line Tools or Xcode
+- No internet connection is required for the app's built-in transcription workflow.
 
 On first use, macOS asks for microphone and speech recognition permissions. Development rebuilds can make macOS ask again because ad-hoc app signatures change.
 
-## Build Locally
+## Notes
+
+- Apple's Speech framework does not expose reliable live speaker diarization on macOS, so speaker changes are approximated when they include an audible pause.
+- The app periodically rolls the Apple Speech streaming task so longer recording sessions continue transcribing instead of ending when the framework times out.
+- Custom transcript actions run locally through the shell, but those commands can do anything your shell can do, including making network requests. Only add commands you trust.
+
+---
+
+## Developer Setup
+
+Caption Crunch intentionally avoids requiring an Xcode project. It builds with the macOS command line tools.
+
+Developer requirements:
+
+- Xcode Command Line Tools or Xcode
+- macOS 13 SDK or newer
+
+### Build Locally
 
 ```sh
 ./build.sh
@@ -45,7 +109,7 @@ Run it with:
 open "build/Caption Crunch.app"
 ```
 
-## Test Locally
+### Test Locally
 
 ```sh
 ./scripts/test.sh
@@ -65,7 +129,7 @@ The test script performs the same practical checks used in CI:
 - icon extraction sanity check
 - ad-hoc code-signature verification
 
-## Build a DMG
+### Build a DMG
 
 ```sh
 ./scripts/build_dmg.sh
@@ -73,14 +137,14 @@ The test script performs the same practical checks used in CI:
 
 The DMG is written to `dist/`. It contains `Caption Crunch.app` and an `Applications` shortcut so installation is the usual drag-to-Applications flow.
 
-## GitHub Automation
+### GitHub Automation
 
 This repo includes two GitHub Actions workflows:
 
-- `.github/workflows/ci.yml`
+- `.github/workflows/ci.yml`  
   Runs on pushes and pull requests. It builds the app and runs `./scripts/test.sh`.
 
-- `.github/workflows/release.yml`
+- `.github/workflows/release.yml`  
   Runs when a tag matching `v*` is pushed. It builds and tests the app, creates a DMG, and publishes a GitHub Release with the DMG attached.
 
 To publish a release:
@@ -91,17 +155,6 @@ git push origin v0.1.0
 ```
 
 GitHub will create the release entry and upload a downloadable DMG automatically.
-
-## Notes
-
-- Choose the input source in `Caption Crunch > Settings`.
-- `Show captions on screen when minimized` controls the transparent on-screen caption overlay.
-- `Record` starts live transcription.
-- `Import Audio...` lets you pick common audio or video files. For video files, Caption Crunch extracts the audio track first.
-- While recording, `Pause` temporarily stops sending audio to the recognizer and `Stop` ends the session.
-- Use `Save` or `File > Save Transcript...` to save the transcript as UTF-8 text.
-- Apple's Speech framework does not expose reliable live speaker diarization on macOS, so speaker changes are approximated when they include an audible pause.
-- The app periodically rolls the Apple Speech streaming task so longer recording sessions continue transcribing instead of ending when the framework times out.
 
 ## Repository Hygiene
 
