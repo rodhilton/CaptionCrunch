@@ -12,7 +12,7 @@ Caption Crunch is a small native Mac app that turns speech from a chosen input d
 
 Caption Crunch is local-first: transcripts stay on your Mac, the app does not upload your audio or text to a cloud service, and normal recording/import transcription does not require an internet connection.
 
-[Download the latest DMG](../../releases/latest)  
+[Download the latest DMG](../../releases/latest/download/CaptionCrunch-latest.dmg)  
 [View all releases](../../releases)
 
 <p>
