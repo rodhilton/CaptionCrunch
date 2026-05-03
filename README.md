@@ -1,11 +1,9 @@
-<p>
-  <img src="Resources/AppIconSource.png" width="112" alt="Caption Crunch app icon">
-</p>
+<img src="Resources/AppIconSource.png" width="112" alt="Caption Crunch app icon">
 
 # Caption Crunch
 
 <p>
-  <strong>Live captions and transcripts for macOS.</strong>
+  Live captions and transcripts for macOS.
   <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="../../actions/workflows/release.yml"><img src="../../actions/workflows/release.yml/badge.svg" alt="Release workflow status"></a>
 </p>
