@@ -1,4 +1,6 @@
-<img src="Resources/AppIconSource.png" align="left" width="104" alt="Caption Crunch app icon">
+<p align="center">
+  <img src="Resources/AppIconSource.png" width="128" alt="Caption Crunch app icon">
+</p>
 
 # Caption Crunch
 
@@ -10,8 +12,6 @@ Caption Crunch is local-first: transcripts stay on your Mac, the app does not up
 
 [Download the latest DMG](../../releases/latest/download/CaptionCrunch-0.1.0.dmg)  
 [View all releases](../../releases)
-
-<br clear="left">
 
 ## Why Use It?
 
