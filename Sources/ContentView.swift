@@ -422,7 +422,7 @@ private struct TranscriptActionsPreferencesView: View {
                 }
             }
 
-            Text("Actions appear in the Save dropdown and File menu. Use %f for a temporary transcript file or %t for the transcript text.")
+            Text("Actions appear in the Save dropdown and File menu. Use %f for a transcript file, %t for transcript text, or %a for the audio file.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

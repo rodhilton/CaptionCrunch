@@ -64,9 +64,24 @@ struct TranscriptActionCommand {
     let command: String
     let tempFileURL: URL?
 
-    static func make(action: TranscriptAction, transcript: String) throws -> TranscriptActionCommand {
+    static func make(
+        action: TranscriptAction,
+        transcript: String,
+        audioURL: URL?
+    ) throws -> TranscriptActionCommand {
         var tempFileURL: URL?
         var command = action.command
+
+        if command.contains("%a") {
+            guard let audioURL else {
+                throw NSError(
+                    domain: "CaptionCrunch.TranscriptAction",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "No audio file is available for %a."]
+                )
+            }
+            command = command.replacingOccurrences(of: "%a", with: shellQuoted(audioURL.path))
+        }
 
         if command.contains("%f") {
             let url = FileManager.default.temporaryDirectory
@@ -216,11 +231,13 @@ final class TranscriptActionsHelpWindowController {
 
             %t inserts the current transcript text directly as a shell-quoted string.
 
+            %a inserts the shell-quoted audio file path. For recordings, Caption Crunch creates a temporary audio file. For imports, it uses the imported media file.
+
             Examples:
 
             open -a TextEdit %f
 
-            python3 ~/scripts/summarize.py %f
+            python3 ~/scripts/summarize.py %f %a
 
             osascript ~/scripts/summarize.scpt %f
 

@@ -47,6 +47,7 @@ Placeholders:
 
 - `%f` writes the transcript to a temporary text file and substitutes the shell-quoted file path.
 - `%t` substitutes the shell-quoted transcript text directly.
+- `%a` substitutes the shell-quoted audio file path. For recordings, Caption Crunch creates a temporary audio file. For imports, it uses the imported media file.
 
 When the command finishes, Caption Crunch opens a result window with copyable output and a Save button.
 

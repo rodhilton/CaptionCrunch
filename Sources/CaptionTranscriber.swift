@@ -77,6 +77,9 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     private var latestImportSegments: [TranscriptSegment] = []
     private var latestImportFallbackText = ""
     private var importBaseTranscript = ""
+    private var currentAudioURL: URL?
+    private var temporaryRecordingURL: URL?
+    private var liveAudioRecorder: SampleBufferAudioRecorder?
     private var importTranscriptionTask: Task<Void, Never>?
     private var importStreamTask: Task<Void, Never>?
     private var importPauseScanTask: Task<Void, Never>?
@@ -160,6 +163,9 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         }
         recognitionTask?.finish()
         session?.stopRunning()
+        audioOutputDelegate.setRecorder(nil)
+        liveAudioRecorder?.finish()
+        liveAudioRecorder = nil
         audioOutputDelegate.setRequest(nil)
         audioOutputDelegate.setPaused(false)
         session = nil
@@ -242,7 +248,11 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     }
 
     private func runAction(_ action: TranscriptAction, transcript: String) async throws -> String {
-        let prepared = try TranscriptActionCommand.make(action: action, transcript: transcript)
+        let prepared = try TranscriptActionCommand.make(
+            action: action,
+            transcript: transcript,
+            audioURL: currentAudioURL
+        )
         defer {
             if let tempFileURL = prepared.tempFileURL {
                 try? FileManager.default.removeItem(at: tempFileURL)
@@ -351,6 +361,8 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         importBaseTranscript = transcriptMode == .importing
             ? transcript.trimmingCharacters(in: .whitespacesAndNewlines)
             : ""
+        currentAudioURL = url
+        temporaryRecordingURL = nil
         committedTranscript = importBaseTranscript
         currentPartialTranscript = ""
         importDuration = 0
@@ -801,6 +813,14 @@ final class CaptionTranscriber: NSObject, ObservableObject {
             throw CaptionError.speechUnavailable
         }
 
+        let recordingURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CaptionCrunch-Recording-\(UUID().uuidString)")
+            .appendingPathExtension("caf")
+        let recorder = SampleBufferAudioRecorder(outputURL: recordingURL)
+        liveAudioRecorder = recorder
+        temporaryRecordingURL = recordingURL
+        currentAudioURL = recordingURL
+
         let captureSession = AVCaptureSession()
         captureSession.beginConfiguration()
 
@@ -821,6 +841,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
             AVLinearPCMIsNonInterleaved: false
         ]
         output.setSampleBufferDelegate(audioOutputDelegate, queue: captureQueue)
+        audioOutputDelegate.setRecorder(recorder)
         guard captureSession.canAddOutput(output) else {
             throw CaptionError.cannotUseInput
         }
@@ -1034,6 +1055,8 @@ final class CaptionTranscriber: NSObject, ObservableObject {
             committedTranscript = ""
             currentPartialTranscript = ""
             importBaseTranscript = ""
+            clearTemporaryRecording()
+            currentAudioURL = nil
             transcriptMode = newMode
             return true
         }
@@ -1054,8 +1077,17 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         committedTranscript = ""
         currentPartialTranscript = ""
         importBaseTranscript = ""
+        clearTemporaryRecording()
+        currentAudioURL = nil
         transcriptMode = newMode
         return true
+    }
+
+    private func clearTemporaryRecording() {
+        if let temporaryRecordingURL {
+            try? FileManager.default.removeItem(at: temporaryRecordingURL)
+        }
+        temporaryRecordingURL = nil
     }
 
     private func updateOverlayVisibility() {
@@ -1072,6 +1104,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
 final class AudioSampleDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
     private let lock = NSLock()
     private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var recorder: SampleBufferAudioRecorder?
     private var paused = false
     private var hasRecentSpeech = false
     private var quietStartedAt: CFTimeInterval?
@@ -1081,6 +1114,12 @@ final class AudioSampleDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferD
     func setRequest(_ request: SFSpeechAudioBufferRecognitionRequest?) {
         lock.withLock {
             self.request = request
+        }
+    }
+
+    func setRecorder(_ recorder: SampleBufferAudioRecorder?) {
+        lock.withLock {
+            self.recorder = recorder
         }
     }
 
@@ -1100,6 +1139,7 @@ final class AudioSampleDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferD
         from connection: AVCaptureConnection
     ) {
         var currentRequest: SFSpeechAudioBufferRecognitionRequest?
+        var currentRecorder: SampleBufferAudioRecorder?
         var shouldSkip = true
         var pauseHandler: (() -> Void)?
         let now = CACurrentMediaTime()
@@ -1107,6 +1147,7 @@ final class AudioSampleDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferD
 
         lock.withLock {
             currentRequest = request
+            currentRecorder = recorder
             shouldSkip = paused
 
             if !paused {
@@ -1126,6 +1167,7 @@ final class AudioSampleDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferD
             }
         }
 
+        currentRecorder?.append(sampleBuffer)
         guard !shouldSkip else { return }
         currentRequest?.appendAudioSampleBuffer(sampleBuffer)
         pauseHandler?()
@@ -1161,6 +1203,68 @@ final class AudioSampleDelegate: NSObject, AVCaptureAudioDataOutputSampleBufferD
     }
 }
 
+final class SampleBufferAudioRecorder {
+    let outputURL: URL
+
+    private var writer: AVAssetWriter?
+    private var input: AVAssetWriterInput?
+    private var isFinished = false
+
+    init(outputURL: URL) {
+        self.outputURL = outputURL
+    }
+
+    func append(_ sampleBuffer: CMSampleBuffer) {
+        guard !isFinished else { return }
+
+        do {
+            if writer == nil {
+                try start(with: sampleBuffer)
+            }
+
+            guard let input, input.isReadyForMoreMediaData else { return }
+            input.append(sampleBuffer)
+        } catch {
+            isFinished = true
+        }
+    }
+
+    func finish() {
+        guard !isFinished else { return }
+        isFinished = true
+        input?.markAsFinished()
+
+        guard let writer else { return }
+        let semaphore = DispatchSemaphore(value: 0)
+        writer.finishWriting {
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 2)
+    }
+
+    private func start(with sampleBuffer: CMSampleBuffer) throws {
+        try? FileManager.default.removeItem(at: outputURL)
+        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .caf)
+        let input = AVAssetWriterInput(
+            mediaType: .audio,
+            outputSettings: nil,
+            sourceFormatHint: CMSampleBufferGetFormatDescription(sampleBuffer)
+        )
+        input.expectsMediaDataInRealTime = true
+
+        guard writer.canAdd(input) else {
+            throw CaptionError.cannotRecordAudioFile
+        }
+
+        writer.add(input)
+        writer.startWriting()
+        writer.startSession(atSourceTime: CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
+
+        self.writer = writer
+        self.input = input
+    }
+}
+
 enum CaptionError: LocalizedError {
     case microphoneDenied
     case speechDenied
@@ -1170,6 +1274,7 @@ enum CaptionError: LocalizedError {
     case noAudioTrack
     case cannotExtractAudio
     case cannotReadAudioFile
+    case cannotRecordAudioFile
 
     var errorDescription: String? {
         switch self {
@@ -1189,6 +1294,8 @@ enum CaptionError: LocalizedError {
             "The audio could not be extracted from that file."
         case .cannotReadAudioFile:
             "That audio file could not be read."
+        case .cannotRecordAudioFile:
+            "The temporary recording file could not be created."
         }
     }
 }
