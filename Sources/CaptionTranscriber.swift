@@ -32,6 +32,10 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     @Published private(set) var importStatusText = ""
     @Published var transcriptActions: [TranscriptAction] {
         didSet {
+            if transcriptActions.count > TranscriptActionStore.maximumActions {
+                transcriptActions = Array(transcriptActions.prefix(TranscriptActionStore.maximumActions))
+                return
+            }
             TranscriptActionStore.save(transcriptActions)
         }
     }

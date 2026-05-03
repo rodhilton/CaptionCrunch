@@ -43,6 +43,7 @@ struct TranscriptAction: Identifiable, Codable, Equatable {
 }
 
 enum TranscriptActionStore {
+    static let maximumActions = 9
     private static let key = "transcriptActions"
 
     static func load() -> [TranscriptAction] {
@@ -50,11 +51,11 @@ enum TranscriptActionStore {
               let actions = try? JSONDecoder().decode([TranscriptAction].self, from: data) else {
             return []
         }
-        return actions
+        return Array(actions.prefix(maximumActions))
     }
 
     static func save(_ actions: [TranscriptAction]) {
-        guard let data = try? JSONEncoder().encode(actions) else { return }
+        guard let data = try? JSONEncoder().encode(Array(actions.prefix(maximumActions))) else { return }
         UserDefaults.standard.set(data, forKey: key)
         NotificationCenter.default.post(name: .transcriptActionsChanged, object: nil)
     }

@@ -1,16 +1,11 @@
-<table style="border: 0;">
-  <tr>
-    <td width="132" valign="top" style="border: 0;">
-      <img src="Resources/AppIconSource.png" width="112" alt="Caption Crunch app icon">
-    </td>
-    <td valign="top" style="border: 0;">
-      <h1>Caption Crunch</h1>
-      <p><strong>Live captions and transcripts for macOS.</strong></p>
-    </td>
-  </tr>
-</table>
+<p>
+  <img src="Resources/AppIconSource.png" width="112" alt="Caption Crunch app icon">
+</p>
+
+# Caption Crunch
 
 <p>
+  <strong>Live captions and transcripts for macOS.</strong>
   <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="../../actions/workflows/release.yml"><img src="../../actions/workflows/release.yml/badge.svg" alt="Release workflow status"></a>
 </p>
@@ -19,7 +14,7 @@ Caption Crunch is a small native Mac app that turns speech from a chosen input d
 
 Caption Crunch is local-first: transcripts stay on your Mac, the app does not upload your audio or text to a cloud service, and normal recording/import transcription does not require an internet connection.
 
-[Download the latest DMG](../../releases/latest/download/CaptionCrunch-0.1.0.dmg)  
+[Download the latest DMG](../../releases/latest)  
 [View all releases](../../releases)
 
 <p>
@@ -52,7 +47,7 @@ If you want to caption audio from another Mac app in real time, route that app i
 
 Caption Crunch can also run your own background commands against the current transcript. This makes it useful for AI summaries, cleanup scripts, publishing workflows, or anything else you can express as a command.
 
-Add actions in `Caption Crunch > Settings > Actions`. Each action has:
+Add up to 9 actions in `Caption Crunch > Settings > Actions`. They are assigned `Cmd-1` through `Cmd-9` in order; delete an action before adding another. Each action has:
 
 - **Name:** shown in the Save dropdown and File menu.
 - **SF Symbol:** optional button/menu icon, such as `sparkles`, `wand.and.stars`, `doc.text`, or `text.quote`.
@@ -170,15 +165,23 @@ This repo includes two GitHub Actions workflows:
 To publish a release:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git status
+git add .
+git commit -m "Prepare v0.1.2"
+git tag v0.1.2
+git push origin main
+git push origin v0.1.2
 ```
 
-GitHub will create the release entry and upload a downloadable DMG automatically.
+Replace `v0.1.2` with the version you are releasing. Pushing the tag triggers GitHub Actions to create the release entry and upload a downloadable DMG automatically.
 
 ## Repository Hygiene
 
 Generated build outputs, DMGs, module caches, local environment files, and common AI-tool scratch folders are ignored in `.gitignore`.
+
+## Project Note
+
+Caption Crunch was vibe-coded, but it serves its purpose well and seems to work, so it is being shared with anyone who may have use for it at no charge.
 
 ## License
 

@@ -3,25 +3,25 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var transcriber: CaptionTranscriber
+    private let toolbarButtonHeight: CGFloat = 34
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Caption Crunch")
-                        .font(.system(size: 20, weight: .semibold))
-                    HStack(spacing: 10) {
-                        Text(transcriber.statusText)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    Text(transcriber.statusText)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
-                        if transcriber.isImporting {
-                            ProgressView(value: transcriber.importProgress)
-                                .controlSize(.small)
-                                .frame(width: 180)
-                        }
+                    if transcriber.isImporting {
+                        ProgressView(value: transcriber.importProgress)
+                            .controlSize(.small)
+                            .frame(width: 220)
                     }
                 }
+                .frame(minHeight: 30, alignment: .center)
 
                 Spacer()
 
@@ -32,6 +32,8 @@ struct ContentView: View {
                         Label(transcriber.isPaused ? "Resume" : "Pause",
                               systemImage: transcriber.isPaused ? "play.fill" : "pause.fill")
                     }
+                    .controlSize(.large)
+                    .frame(height: toolbarButtonHeight)
                     .keyboardShortcut(.space, modifiers: [])
 
                     Button(role: .destructive) {
@@ -39,6 +41,8 @@ struct ContentView: View {
                     } label: {
                         Label("Stop", systemImage: "stop.fill")
                     }
+                    .controlSize(.large)
+                    .frame(height: toolbarButtonHeight)
                     .keyboardShortcut(.cancelAction)
                 } else {
                     Button {
@@ -46,12 +50,16 @@ struct ContentView: View {
                     } label: {
                         Label("Import Audio...", systemImage: "waveform")
                     }
+                    .controlSize(.large)
+                    .frame(height: toolbarButtonHeight)
 
                     Button {
                         transcriber.start()
                     } label: {
                         Label("Record", systemImage: "record.circle")
                     }
+                    .controlSize(.large)
+                    .frame(height: toolbarButtonHeight)
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
                     .keyboardShortcut(.defaultAction)
@@ -61,6 +69,11 @@ struct ContentView: View {
             .padding(.horizontal, 22)
             .padding(.vertical, 16)
             .background(.bar)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color(nsColor: .separatorColor))
+                    .frame(height: 0.5)
+            }
 
             TranscriptTextView(text: transcriber.transcript)
 
@@ -78,6 +91,11 @@ struct ContentView: View {
             .padding(.horizontal, 22)
             .padding(.vertical, 12)
             .background(.bar)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color(nsColor: .separatorColor))
+                    .frame(height: 0.5)
+            }
         }
         .alert("Caption Crunch", isPresented: $transcriber.showingAlert) {
             Button("OK", role: .cancel) {}
@@ -113,6 +131,7 @@ struct ContentView: View {
 
 private struct SaveActionControl: View {
     @EnvironmentObject private var transcriber: CaptionTranscriber
+    private let buttonHeight: CGFloat = 34
 
     private var hasTranscript: Bool {
         !transcriber.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -129,17 +148,23 @@ private struct SaveActionControl: View {
             } label: {
                 Label("Save", systemImage: "square.and.arrow.down")
             }
+            .controlSize(.regular)
+            .frame(height: buttonHeight)
             .disabled(!hasTranscript)
         } else {
             HStack(spacing: 0) {
                 Button {
                     transcriber.saveTranscript()
                 } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
+                    HStack(spacing: 7) {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("Save")
+                    }
+                    .font(.system(size: 13.5, weight: .medium))
+                    .frame(height: buttonHeight)
                 }
-                .buttonStyle(.borderless)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 9)
                 .foregroundStyle(isEnabled ? Color.white : Color.secondary)
                 .disabled(!hasTranscript)
 
@@ -154,8 +179,12 @@ private struct SaveActionControl: View {
                         transcriber.runTranscriptAction(id: id)
                     }
                 )
-                .frame(width: 26, height: 24)
+                .frame(width: 26, height: buttonHeight)
             }
+            .frame(height: buttonHeight)
+            .clipped()
+            .allowsHitTesting(isEnabled)
+            .accessibilityElement(children: isEnabled ? .contain : .ignore)
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(isEnabled ? Color.accentColor : Color(nsColor: .controlBackgroundColor))
@@ -180,6 +209,7 @@ private struct ActionPopupButton: NSViewRepresentable {
         button.bezelStyle = .regularSquare
         button.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Show transcript actions")
         button.imagePosition = .imageOnly
+        button.imageScaling = .scaleProportionallyDown
         button.contentTintColor = .white
         button.toolTip = "Show transcript actions"
         button.setAccessibilityLabel("Transcript actions")
@@ -430,15 +460,20 @@ private struct TranscriptActionsPreferencesView: View {
                     .font(.headline)
                 Spacer()
                 Button {
+                    guard transcriber.transcriptActions.count < TranscriptActionStore.maximumActions else { return }
                     transcriber.transcriptActions.append(
                         TranscriptAction(name: "New Action", command: "")
                     )
                 } label: {
                     Label("Add", systemImage: "plus")
                 }
+                .disabled(transcriber.transcriptActions.count >= TranscriptActionStore.maximumActions)
+                .help(transcriber.transcriptActions.count >= TranscriptActionStore.maximumActions
+                      ? "Delete an action before adding another."
+                      : "Add a transcript action")
             }
 
-            Text("Actions appear in the Save dropdown and File menu. Use %f for a transcript file, %t for transcript text, or %a for the audio file.")
+            Text("Actions appear in the Save dropdown and File menu. You can create up to 9 actions, assigned Cmd-1 through Cmd-9. Use %f for a transcript file, %t for transcript text, or %a for the audio file.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -614,6 +649,12 @@ private struct WindowCloseHandler: NSViewRepresentable {
             guard self.window !== window else { return }
             self.window = window
             window.delegate = self
+            installTitlebarProxyIcon(in: window)
+        }
+
+        private func installTitlebarProxyIcon(in window: NSWindow) {
+            window.representedURL = Bundle.main.bundleURL
+            window.title = "Caption Crunch"
         }
 
         func windowShouldClose(_ sender: NSWindow) -> Bool {

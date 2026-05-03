@@ -26,6 +26,16 @@ if grep -En 'Menu \{' Sources/ContentView.swift; then
   exit 1
 fi
 
+if ! grep -q 'allowsHitTesting(isEnabled)' Sources/ContentView.swift; then
+  echo "Save action split control must not open its dropdown when no transcript is available." >&2
+  exit 1
+fi
+
+if ! grep -q 'window.representedURL = Bundle.main.bundleURL' Sources/ContentView.swift; then
+  echo "Main window should install the app icon next to the title with a titlebar proxy icon." >&2
+  exit 1
+fi
+
 if ! grep -Eq 'NSMenuItem\(' Sources/ContentView.swift || ! grep -Eq 'item.image = NSImage\(systemSymbolName: symbolName' Sources/ContentView.swift; then
   echo "Transcript action dropdown must build NSMenuItems with SF Symbol images." >&2
   exit 1
@@ -43,6 +53,11 @@ fi
 
 if ! grep -q 'keyEquivalent: index < 9 ? String(index + 1)' Sources/CaptionCrunchApp.swift; then
   echo "Transcript actions in the File menu must receive Cmd-number shortcuts." >&2
+  exit 1
+fi
+
+if ! grep -q 'maximumActions = 9' Sources/TranscriptAction.swift || ! grep -q 'count < TranscriptActionStore.maximumActions' Sources/ContentView.swift || ! grep -q 'transcriptActions.count > TranscriptActionStore.maximumActions' Sources/CaptionTranscriber.swift; then
+  echo "Transcript actions must be capped at 9 so Cmd-1 through Cmd-9 remain exhaustive." >&2
   exit 1
 fi
 
