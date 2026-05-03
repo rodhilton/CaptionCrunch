@@ -6,12 +6,17 @@ DIST_DIR="$ROOT/dist"
 BUILD_DIR="$ROOT/build"
 APP="$BUILD_DIR/Caption Crunch.app"
 STAGING="$BUILD_DIR/dmg-root"
-VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT/Info.plist")"
+VERSION="${VERSION:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT/Info.plist")}"
+VERSION="${VERSION#v}"
 DMG="$DIST_DIR/CaptionCrunch-${VERSION}.dmg"
 
 cd "$ROOT"
 
 ./build.sh
+
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER:-$VERSION}" "$APP/Contents/Info.plist"
+codesign --force --sign - "$APP" >/dev/null
 
 rm -rf "$STAGING" "$DMG"
 mkdir -p "$STAGING" "$DIST_DIR"

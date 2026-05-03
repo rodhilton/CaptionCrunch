@@ -22,6 +22,9 @@ jobs:
 
       - name: Build DMG
         run: ./scripts/build_dmg.sh
+        env:
+          VERSION: ${{ github.ref_name }}
+          BUILD_NUMBER: ${{ github.run_number }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

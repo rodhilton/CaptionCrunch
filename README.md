@@ -1,10 +1,18 @@
-<p align="center">
-  <img src="Resources/AppIconSource.png" width="128" alt="Caption Crunch app icon">
-</p>
-
-# Caption Crunch
-
-**Live captions and transcript tools for macOS.**
+<table>
+  <tr>
+    <td width="132" valign="top">
+      <img src="Resources/AppIconSource.png" width="112" alt="Caption Crunch app icon">
+    </td>
+    <td valign="top">
+      <h1>Caption Crunch</h1>
+      <p><strong>Live captions and transcripts for macOS.</strong></p>
+      <p>
+        <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+        <a href="../../actions/workflows/release.yml"><img src="../../actions/workflows/release.yml/badge.svg" alt="Release workflow status"></a>
+      </p>
+    </td>
+  </tr>
+</table>
 
 Caption Crunch is a small native Mac app that turns speech from a chosen input device into live, readable captions. It is built for tabletop games, calls, streams, interviews, accessibility experiments, and any moment where you want a local caption window without opening a full meeting app.
 
@@ -13,13 +21,15 @@ Caption Crunch is local-first: transcripts stay on your Mac, the app does not up
 [Download the latest DMG](../../releases/latest/download/CaptionCrunch-0.1.0.dmg)  
 [View all releases](../../releases)
 
+![Caption Crunch main window](docs/assets/main-window.png)
+
 ## Why Use It?
 
 - **Caption speech live.** Pick a Mac input device, press Record, and watch the transcript appear as people talk.
 - **Import existing audio or video.** Drop in common media files and Caption Crunch transcribes the audio track.
 - **Keep the transcript readable.** Pause detection adds paragraph breaks, and the transcript auto-scrolls smoothly while new text arrives.
 - **Save or reuse the result.** Save plain text transcripts, copy the full log, or run custom commands against the transcript.
-- **Stay out of the way.** When minimized, Caption Crunch can show transparent on-screen captions at the edge of your display.
+- **Stay out of the way.** When minimized, Caption Crunch can show transparent on-screen captions at the edge of your display (experimental)
 - **Keep it local.** Audio and transcript text remain on your machine unless you explicitly run a custom action that sends them somewhere.
 
 ## What It Does
@@ -32,6 +42,8 @@ Caption Crunch uses macOS audio capture and Apple Speech recognition. Everything
 4. Save the transcript as plain text, or run a custom transcript action.
 
 For existing recordings, use `Import Audio...` to transcribe common audio and video formats. Video imports automatically extract the audio track first when possible.
+
+If you want to caption audio from another Mac app in real time, route that app into a virtual input device and select it in Caption Crunch. [Loopback by Rogue Amoeba](https://www.rogueamoeba.com/loopback/) is recommended for this kind of app-to-input routing.
 
 ## Transcript Actions
 
@@ -50,6 +62,8 @@ Placeholders:
 - `%a` substitutes the shell-quoted audio file path. For recordings, Caption Crunch creates a temporary audio file. For imports, it uses the imported media file.
 
 When the command finishes, Caption Crunch opens a result window with copyable output and a Save button.
+
+![Caption Crunch transcript action settings](docs/assets/settings-actions.png)
 
 ## Features
 
@@ -160,3 +174,7 @@ GitHub will create the release entry and upload a downloadable DMG automatically
 ## Repository Hygiene
 
 Generated build outputs, DMGs, module caches, local environment files, and common AI-tool scratch folders are ignored in `.gitignore`.
+
+## License
+
+Caption Crunch is source-available, not open source. You may use it personally and contribute changes back to the original project, but redistribution, commercial use, and competing forks are not permitted without written permission. See [LICENSE](LICENSE).
