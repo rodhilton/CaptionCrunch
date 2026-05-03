@@ -1,18 +1,19 @@
-<table>
+<table style="border: 0;">
   <tr>
-    <td width="132" valign="top">
+    <td width="132" valign="top" style="border: 0;">
       <img src="Resources/AppIconSource.png" width="112" alt="Caption Crunch app icon">
     </td>
-    <td valign="top">
+    <td valign="top" style="border: 0;">
       <h1>Caption Crunch</h1>
       <p><strong>Live captions and transcripts for macOS.</strong></p>
-      <p>
-        <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-        <a href="../../actions/workflows/release.yml"><img src="../../actions/workflows/release.yml/badge.svg" alt="Release workflow status"></a>
-      </p>
     </td>
   </tr>
 </table>
+
+<p>
+  <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="../../actions/workflows/release.yml"><img src="../../actions/workflows/release.yml/badge.svg" alt="Release workflow status"></a>
+</p>
 
 Caption Crunch is a small native Mac app that turns speech from a chosen input device into live, readable captions. It is built for tabletop games, calls, streams, interviews, accessibility experiments, and any moment where you want a local caption window without opening a full meeting app.
 
@@ -21,7 +22,9 @@ Caption Crunch is local-first: transcripts stay on your Mac, the app does not up
 [Download the latest DMG](../../releases/latest/download/CaptionCrunch-0.1.0.dmg)  
 [View all releases](../../releases)
 
-![Caption Crunch main window](docs/assets/main-window.png)
+<p>
+  <img src="docs/assets/main-window.png" width="900" style="max-width: 100%;" alt="Caption Crunch main window">
+</p>
 
 ## Why Use It?
 
@@ -63,7 +66,9 @@ Placeholders:
 
 When the command finishes, Caption Crunch opens a result window with copyable output and a Save button.
 
-![Caption Crunch transcript action settings](docs/assets/settings-actions.png)
+<p>
+  <img src="docs/assets/settings-actions.png" width="620" style="max-width: 100%;" alt="Caption Crunch transcript action settings">
+</p>
 
 ## Features
 
