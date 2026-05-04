@@ -133,6 +133,7 @@ final class TranscriptActionResultWindowController {
 private struct TranscriptActionResultView: View {
     let title: String
     let output: String
+    private let buttonHeight: CGFloat = 34
 
     var body: some View {
         VStack(spacing: 0) {
@@ -143,12 +144,35 @@ private struct TranscriptActionResultView: View {
                 Button {
                     save()
                 } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
+                    HStack(spacing: 7) {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("Save")
+                    }
+                    .font(.system(size: 13.5, weight: .medium))
+                    .frame(height: buttonHeight)
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .foregroundStyle(Color.white)
+                .frame(height: buttonHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.accentColor)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.accentColor.opacity(0.9), lineWidth: 0.75)
+                )
+                .shadow(color: Color.black.opacity(0.16), radius: 1, y: 1)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(.bar)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color(nsColor: .separatorColor))
+                    .frame(height: 0.5)
+            }
         }
     }
 

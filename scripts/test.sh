@@ -36,6 +36,11 @@ if ! grep -q 'window.representedURL = Bundle.main.bundleURL' Sources/ContentView
   exit 1
 fi
 
+if ! grep -q 'private let buttonHeight: CGFloat = 34' Sources/TranscriptAction.swift || ! grep -q 'frame(height: buttonHeight)' Sources/TranscriptAction.swift; then
+  echo "Transcript action result Save button should match the main Save button height." >&2
+  exit 1
+fi
+
 if ! grep -Eq 'NSMenuItem\(' Sources/ContentView.swift || ! grep -Eq 'item.image = NSImage\(systemSymbolName: symbolName' Sources/ContentView.swift; then
   echo "Transcript action dropdown must build NSMenuItems with SF Symbol images." >&2
   exit 1
