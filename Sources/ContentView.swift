@@ -398,9 +398,10 @@ private struct TranscriptTextView: NSViewRepresentable {
 
 struct PreferencesView: View {
     @EnvironmentObject private var transcriber: CaptionTranscriber
+    @State private var selectedTab = PreferencesTab.general
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             Form {
                 Picker("Input device", selection: $transcriber.selectedDeviceID) {
                     ForEach(transcriber.devices) { device in
@@ -418,19 +419,188 @@ struct PreferencesView: View {
                     }
                     .disabled(transcriber.isRecording)
                 }
-
-                Toggle("Show captions on screen when minimized", isOn: $transcriber.showOverlayWhenMinimized)
             }
             .formStyle(.grouped)
             .padding(18)
             .tabItem { Text("General") }
+            .tag(PreferencesTab.general)
+
+            OverlayPreferencesView(selectedTab: $selectedTab)
+                .environmentObject(transcriber)
+                .padding(18)
+                .tabItem { Text("Overlay") }
+                .tag(PreferencesTab.overlay)
 
             TranscriptActionsPreferencesView()
                 .environmentObject(transcriber)
                 .padding(18)
                 .tabItem { Text("Actions") }
+                .tag(PreferencesTab.actions)
+        }
+        .onChange(of: selectedTab) { newTab in
+            if newTab != .overlay {
+                transcriber.hideOverlayPreview()
+            } else if transcriber.showOverlayWhenMinimized {
+                transcriber.showOverlayPreview()
+            }
+        }
+        .onDisappear {
+            transcriber.hideOverlayPreview()
         }
     }
+}
+
+private struct OverlayPreferencesView: View {
+    @EnvironmentObject private var transcriber: CaptionTranscriber
+    @Binding var selectedTab: PreferencesTab
+
+    private let fontChoices = [
+        "System Semibold",
+        "System Regular",
+        "System Bold",
+        "Avenir Next",
+        "Helvetica Neue",
+        "Menlo",
+        "Georgia"
+    ]
+
+    var body: some View {
+        Form {
+            Toggle("Show captions on screen when minimized", isOn: $transcriber.showOverlayWhenMinimized)
+                .onChange(of: transcriber.showOverlayWhenMinimized) { enabled in
+                    if selectedTab == .overlay, enabled {
+                        transcriber.showOverlayPreview()
+                    } else {
+                        transcriber.hideOverlayPreview()
+                    }
+                }
+
+            Section("Text") {
+                Picker("Font", selection: overlayBinding(\.fontName)) {
+                    ForEach(fontChoices, id: \.self) { font in
+                        Text(font).tag(font)
+                    }
+                }
+
+                labeledSlider(
+                    title: "Font size",
+                    value: overlayBinding(\.fontSize),
+                    range: 10...72,
+                    step: 1,
+                    format: "%.0f"
+                )
+
+                ColorPicker("Text color", selection: colorBinding(\.textColorHex), supportsOpacity: true)
+
+                Picker("Alignment", selection: overlayBinding(\.alignment)) {
+                    ForEach(CaptionOverlayAlignment.allCases) { alignment in
+                        Text(alignment.title).tag(alignment)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Section("Outline") {
+                ColorPicker("Outline color", selection: colorBinding(\.outlineColorHex), supportsOpacity: true)
+
+                labeledSlider(
+                    title: "Outline thickness",
+                    value: overlayBinding(\.outlineThickness),
+                    range: 0...12,
+                    step: 0.5,
+                    format: "%.1f"
+                )
+            }
+
+            Section("Screen Area") {
+                labeledSlider(
+                    title: "Width",
+                    value: overlayBinding(\.widthPercent),
+                    range: 20...90,
+                    step: 1,
+                    format: "%.0f%%"
+                )
+
+                labeledSlider(
+                    title: "Height",
+                    value: overlayBinding(\.heightPercent),
+                    range: 25...95,
+                    step: 1,
+                    format: "%.0f%%"
+                )
+
+                labeledSlider(
+                    title: "Fade starts",
+                    value: overlayBinding(\.fadeStartPercent),
+                    range: 40...100,
+                    step: 1,
+                    format: "%.0f%%"
+                )
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear {
+            if transcriber.showOverlayWhenMinimized {
+                transcriber.showOverlayPreview()
+            }
+        }
+    }
+
+    private func overlayBinding<Value>(_ keyPath: WritableKeyPath<CaptionOverlayStyle, Value>) -> Binding<Value> {
+        Binding(
+            get: { transcriber.overlayStyle[keyPath: keyPath] },
+            set: { newValue in
+                var style = transcriber.overlayStyle
+                style[keyPath: keyPath] = newValue
+                transcriber.overlayStyle = style
+            }
+        )
+    }
+
+    private func colorBinding(_ keyPath: WritableKeyPath<CaptionOverlayStyle, String>) -> Binding<Color> {
+        Binding(
+            get: {
+                Color(nsColor: NSColor.captionCrunchColor(
+                    hex: transcriber.overlayStyle[keyPath: keyPath],
+                    fallback: .white
+                ))
+            },
+            set: { color in
+                var style = transcriber.overlayStyle
+                style[keyPath: keyPath] = NSColor(color).captionCrunchHex
+                transcriber.overlayStyle = style
+            }
+        )
+    }
+
+    private func labeledSlider(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double,
+        format: String
+    ) -> some View {
+        HStack(spacing: 12) {
+            Slider(value: value, in: range, step: step) {
+                Text(title)
+            } minimumValueLabel: {
+                Text(String(format: format, range.lowerBound))
+            } maximumValueLabel: {
+                Text(String(format: format, range.upperBound))
+            }
+
+            Text(String(format: format, value.wrappedValue))
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 52, alignment: .trailing)
+        }
+    }
+}
+
+private enum PreferencesTab: Hashable {
+    case general
+    case overlay
+    case actions
 }
 
 private struct TranscriptActionsPreferencesView: View {
@@ -640,6 +810,9 @@ private struct WindowCloseHandler: NSViewRepresentable {
     final class Coordinator: NSObject, NSWindowDelegate {
         var transcriber: CaptionTranscriber
         private weak var window: NSWindow?
+        private var miniaturizeObserver: NSObjectProtocol?
+        private var deminiaturizeObserver: NSObjectProtocol?
+        private var willCloseObserver: NSObjectProtocol?
 
         init(transcriber: CaptionTranscriber) {
             self.transcriber = transcriber
@@ -650,11 +823,55 @@ private struct WindowCloseHandler: NSViewRepresentable {
             self.window = window
             window.delegate = self
             installTitlebarProxyIcon(in: window)
+            installWindowObservers(for: window)
         }
 
         private func installTitlebarProxyIcon(in window: NSWindow) {
             window.representedURL = Bundle.main.bundleURL
             window.title = "Caption Crunch"
+        }
+
+        private func installWindowObservers(for window: NSWindow) {
+            removeWindowObservers()
+            miniaturizeObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didMiniaturizeNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                guard let transcriber = self?.transcriber else { return }
+                Task { @MainActor in
+                    transcriber.setMainWindowMinimized(true)
+                }
+            }
+            deminiaturizeObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didDeminiaturizeNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                guard let transcriber = self?.transcriber else { return }
+                Task { @MainActor in
+                    transcriber.setMainWindowMinimized(false)
+                }
+            }
+            willCloseObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                guard let transcriber = self?.transcriber else { return }
+                Task { @MainActor in
+                    transcriber.setMainWindowMinimized(false)
+                }
+            }
+        }
+
+        private func removeWindowObservers() {
+            for observer in [miniaturizeObserver, deminiaturizeObserver, willCloseObserver].compactMap({ $0 }) {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            miniaturizeObserver = nil
+            deminiaturizeObserver = nil
+            willCloseObserver = nil
         }
 
         func windowShouldClose(_ sender: NSWindow) -> Bool {
@@ -666,9 +883,14 @@ private struct WindowCloseHandler: NSViewRepresentable {
         }
 
         func windowWillClose(_ notification: Notification) {
+            removeWindowObservers()
             DispatchQueue.main.async {
                 NSApp.terminate(nil)
             }
+        }
+
+        func windowWillMiniaturize(_ notification: Notification) {
+            transcriber.setMainWindowMinimized(true)
         }
 
         func windowDidMiniaturize(_ notification: Notification) {

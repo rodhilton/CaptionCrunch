@@ -41,6 +41,36 @@ if ! grep -q 'private let buttonHeight: CGFloat = 34' Sources/TranscriptAction.s
   exit 1
 fi
 
+if ! grep -q 'tabItem { Text("Overlay") }' Sources/ContentView.swift || ! grep -q 'showOverlayPreview' Sources/CaptionTranscriber.swift || ! grep -q 'CaptionOverlayStyle' Sources/CaptionOverlayController.swift; then
+  echo "Overlay settings must expose previewable style controls in their own tab." >&2
+  exit 1
+fi
+
+if ! grep -q 'func windowWillClose' Sources/PreferencesWindowController.swift || ! grep -q 'transcriber?.hideOverlayPreview()' Sources/PreferencesWindowController.swift; then
+  echo "Closing Settings must hide the overlay preview." >&2
+  exit 1
+fi
+
+if ! grep -q 'windowWillMiniaturize' Sources/ContentView.swift || ! grep -q 'NSWindow.didMiniaturizeNotification' Sources/ContentView.swift; then
+  echo "Main window minimize detection must show the overlay reliably." >&2
+  exit 1
+fi
+
+if ! grep -q 'beginActivity' Sources/CaptionTranscriber.swift || ! grep -q 'endActivity' Sources/CaptionTranscriber.swift; then
+  echo "Recording/importing must hold a process activity assertion so minimized transcription keeps running." >&2
+  exit 1
+fi
+
+if ! grep -q 'NSPanel' Sources/CaptionOverlayController.swift || ! grep -q 'canHide = false' Sources/CaptionOverlayController.swift || ! grep -q 'hidesOnDeactivate = false' Sources/CaptionOverlayController.swift; then
+  echo "Overlay captions must use a non-hiding panel so they survive main-window minimization." >&2
+  exit 1
+fi
+
+if ! grep -q 'rect.minY - overflow' Sources/CaptionOverlayController.swift; then
+  echo "Overlay captions must anchor new text to the bottom and let older text move upward." >&2
+  exit 1
+fi
+
 if ! grep -Eq 'NSMenuItem\(' Sources/ContentView.swift || ! grep -Eq 'item.image = NSImage\(systemSymbolName: symbolName' Sources/ContentView.swift; then
   echo "Transcript action dropdown must build NSMenuItems with SF Symbol images." >&2
   exit 1

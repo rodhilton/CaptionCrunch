@@ -47,6 +47,20 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     @Published var showOverlayWhenMinimized: Bool {
         didSet {
             UserDefaults.standard.set(showOverlayWhenMinimized, forKey: Self.showOverlayKey)
+            refreshOverlayText()
+            updateOverlayVisibility()
+        }
+    }
+    @Published var overlayStyle: CaptionOverlayStyle {
+        didSet {
+            let clampedStyle = overlayStyle.clamped()
+            if overlayStyle != clampedStyle {
+                overlayStyle = clampedStyle
+                return
+            }
+            overlayStyle.save()
+            overlayController.style = overlayStyle
+            refreshOverlayText()
             updateOverlayVisibility()
         }
     }
@@ -90,12 +104,14 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     private var importStreamTask: Task<Void, Never>?
     private var importPauseScanTask: Task<Void, Never>?
     private var importWasStopped = false
+    private var isOverlayPreviewActive = false
+    private var activeProcessActivity: NSObjectProtocol?
 
     var statusText: String {
         if isImporting { return isPaused ? "Importing audio - paused" : "Importing audio" }
         if isPaused { return "Paused" }
         if isRecording {
-            let base = "Listening from \(selectedDeviceName)"
+            let base = "Listening from '\(selectedDeviceName)'"
             return listeningNote.isEmpty ? base : "\(base) - \(listeningNote)"
         }
         return "Ready"
@@ -108,8 +124,10 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     override init() {
         selectedDeviceID = UserDefaults.standard.string(forKey: Self.selectedDeviceKey) ?? ""
         showOverlayWhenMinimized = UserDefaults.standard.object(forKey: Self.showOverlayKey) as? Bool ?? true
+        overlayStyle = CaptionOverlayStyle.load()
         transcriptActions = TranscriptActionStore.load()
         super.init()
+        overlayController.style = overlayStyle
         refreshDevices()
     }
 
@@ -184,6 +202,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         isPaused = false
         listeningNote = ""
         dockIconController.setMode(.idle)
+        endProcessActivity()
     }
 
     func stopIfNeededBeforeClosing() {
@@ -197,6 +216,27 @@ final class CaptionTranscriber: NSObject, ObservableObject {
 
     func setMainWindowMinimized(_ minimized: Bool) {
         isMainWindowMinimized = minimized
+        refreshOverlayText()
+        updateOverlayVisibility()
+        if minimized {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                guard self.isMainWindowMinimized else { return }
+                self.refreshOverlayText()
+                self.updateOverlayVisibility()
+            }
+        }
+    }
+
+    func showOverlayPreview() {
+        isOverlayPreviewActive = true
+        refreshOverlayText()
+        updateOverlayVisibility()
+    }
+
+    func hideOverlayPreview() {
+        isOverlayPreviewActive = false
+        refreshOverlayText()
         updateOverlayVisibility()
     }
 
@@ -344,7 +384,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         }.value
     }
 
-    private static func sampleTranscript() -> String {
+    static func sampleTranscript() -> String {
         guard let url = Bundle.main.url(forResource: "SampleTranscript", withExtension: "txt"),
               let text = try? String(contentsOf: url, encoding: .utf8) else {
             return """
@@ -421,6 +461,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
 
     private func transcribeImportedFile(_ url: URL) async {
         isImporting = true
+        beginProcessActivity(reason: "Caption Crunch is importing audio.")
         importProgress = 0
         importStatusText = "Preparing audio..."
         listeningNote = ""
@@ -475,6 +516,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         recognitionRequest = nil
         recognitionTask = nil
         dockIconController.setMode(.idle)
+        endProcessActivity()
     }
 
     private func requestSpeechPermission() async throws {
@@ -644,6 +686,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         latestImportFallbackText = ""
         importBaseTranscript = ""
         dockIconController.setMode(.idle)
+        endProcessActivity()
     }
 
     private func startImportPauseScan(for url: URL) {
@@ -804,7 +847,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         currentPartialTranscript = ""
         transcriptMode = .importing
         updateImportProgress(from: result)
-        overlayController.update(text: TranscriptFormatting.overlaySnippet(from: transcript))
+        refreshOverlayText()
         return partial
     }
 
@@ -818,7 +861,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         guard !displayText.isEmpty, displayText != transcript else { return }
         transcript = displayText
         committedTranscript = displayText
-        overlayController.update(text: TranscriptFormatting.overlaySnippet(from: transcript))
+        refreshOverlayText()
     }
 
     private func formattedImportedTranscript(
@@ -865,7 +908,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         transcriptMode = .importing
         importProgress = 1
         importStatusText = "Import complete"
-        overlayController.update(text: TranscriptFormatting.overlaySnippet(from: transcript))
+        refreshOverlayText()
     }
 
     private func startCapture() throws {
@@ -930,6 +973,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
 
         session = captureSession
         isRecording = true
+        beginProcessActivity(reason: "Caption Crunch is recording and transcribing audio.")
         isPaused = false
         listeningNote = ""
         dockIconController.setMode(.recording)
@@ -1062,7 +1106,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         )
         currentPartialTranscript = ""
         transcript = committedTranscript
-        overlayController.update(text: TranscriptFormatting.overlaySnippet(from: transcript))
+        refreshOverlayText()
         if !partial.isEmpty {
             listeningNote = ""
         }
@@ -1073,7 +1117,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
             committed: committedTranscript,
             partial: currentPartialTranscript
         )
-        overlayController.update(text: TranscriptFormatting.overlaySnippet(from: transcript))
+        refreshOverlayText()
     }
 
     private func present(_ message: String) {
@@ -1108,7 +1152,7 @@ final class CaptionTranscriber: NSObject, ObservableObject {
         transcriptMode = .empty
         clearTemporaryRecording()
         currentAudioURL = nil
-        overlayController.update(text: "")
+        refreshOverlayText()
     }
 
     private func prepareForMode(_ newMode: TranscriptMode) -> Bool {
@@ -1172,11 +1216,36 @@ final class CaptionTranscriber: NSObject, ObservableObject {
     }
 
     private func updateOverlayVisibility() {
-        if showOverlayWhenMinimized, isMainWindowMinimized {
-            overlayController.update(text: TranscriptFormatting.overlaySnippet(from: transcript))
+        if showOverlayWhenMinimized, isOverlayPreviewActive {
+            overlayController.show()
+        } else if showOverlayWhenMinimized, isMainWindowMinimized {
             overlayController.show()
         } else {
             overlayController.hide()
+        }
+    }
+
+    private func beginProcessActivity(reason: String) {
+        if activeProcessActivity == nil {
+            activeProcessActivity = ProcessInfo.processInfo.beginActivity(
+                options: [.userInitiated, .latencyCritical],
+                reason: reason
+            )
+        }
+    }
+
+    private func endProcessActivity() {
+        if let activeProcessActivity {
+            ProcessInfo.processInfo.endActivity(activeProcessActivity)
+            self.activeProcessActivity = nil
+        }
+    }
+
+    private func refreshOverlayText() {
+        if isOverlayPreviewActive {
+            overlayController.update(text: Self.sampleTranscript())
+        } else {
+            overlayController.update(text: transcript.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }
 
