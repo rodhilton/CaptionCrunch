@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caption Crunch - Live captions and transcripts for macOS</title>
+  <meta name="description" content="Caption Crunch is a local-first Mac app for live captions, audio/video transcription, transcript export, and custom transcript actions.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="Caption Crunch home">
+        <img src="assets/app-icon.png" width="40" height="40" alt="">
+        <span>Caption Crunch</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#actions">Actions</a>
+        <a href="https://github.com/rodhilton/CaptionCrunch">GitHub</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <img class="hero-icon" src="assets/app-icon.png" width="112" height="112" alt="Caption Crunch app icon">
+        <p class="eyebrow">Local-first Mac captioning</p>
+        <h1>Live captions and transcripts for macOS.</h1>
+        <p class="lede">
+          Caption Crunch turns speech from a chosen Mac input device into readable live captions,
+          and can transcribe existing audio or video files into a copyable transcript.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="https://github.com/rodhilton/CaptionCrunch/releases/latest/download/CaptionCrunch-latest.dmg">Download latest DMG</a>
+          <a class="button secondary" href="https://github.com/rodhilton/CaptionCrunch/releases">View releases</a>
+        </div>
+        <p class="privacy-note">Built-in transcription stays on your Mac. No cloud upload. No internet connection required.</p>
+      </div>
+      <div class="hero-media">
+        <img src="assets/main-window.png" alt="Caption Crunch main window showing a transcript area and recording controls">
+      </div>
+    </section>
+
+    <section class="section callouts" aria-label="Highlights">
+      <article>
+        <h2>Caption speech live</h2>
+        <p>Pick an input, press Record, and watch a readable transcript appear as people talk.</p>
+      </article>
+      <article>
+        <h2>Import media</h2>
+        <p>Transcribe common audio and video files without waiting for realtime playback.</p>
+      </article>
+      <article>
+        <h2>Keep it local</h2>
+        <p>Audio and transcript text stay on your machine unless you run a custom action that sends them elsewhere.</p>
+      </article>
+    </section>
+
+    <section id="features" class="section split">
+      <div>
+        <p class="eyebrow">What it does</p>
+        <h2>A small utility for the transcript-first workflow.</h2>
+        <p>
+          Caption Crunch is built for tabletop games, calls, streams, interviews, accessibility experiments,
+          and any moment where you want captions without opening a full meeting app.
+        </p>
+      </div>
+      <ul class="feature-list">
+        <li>Choose a Mac input device in Settings.</li>
+        <li>Record, pause, resume, and stop live transcription.</li>
+        <li>Import common audio and video formats.</li>
+        <li>Save transcripts as plain text.</li>
+        <li>Use Copy All when a transcript is still updating.</li>
+        <li>Show configurable transparent overlay captions when minimized.</li>
+      </ul>
+    </section>
+
+    <section id="actions" class="section action-section">
+      <div class="section-heading">
+        <p class="eyebrow">Transcript actions</p>
+        <h2>Run your own commands on the transcript.</h2>
+        <p>
+          Add up to nine custom actions for AI summaries, cleanup scripts, publishing workflows,
+          or anything else you can express as a shell command.
+        </p>
+      </div>
+      <div class="screenshot-card compact">
+        <img src="assets/settings-actions.png" alt="Caption Crunch settings showing custom transcript actions">
+      </div>
+      <div class="placeholder-grid">
+        <div><code>%f</code><span>Write transcript to a temporary text file and pass the file path.</span></div>
+        <div><code>%t</code><span>Pass the transcript text directly as a shell-quoted string.</span></div>
+        <div><code>%a</code><span>Pass the recording or imported media file path when available.</span></div>
+      </div>
+    </section>
+
+    <section class="section split">
+      <div>
+        <p class="eyebrow">Routing app audio</p>
+        <h2>Caption audio from other Mac apps.</h2>
+        <p>
+          To caption another app in realtime, route that app into a virtual input device and select it
+          in Caption Crunch. <a href="https://www.rogueamoeba.com/loopback/">Loopback by Rogue Amoeba</a>
+          is recommended for this kind of app-to-input routing.
+        </p>
+      </div>
+      <div class="requirements">
+        <h3>Requirements</h3>
+        <ul>
+          <li>macOS 13 or newer</li>
+          <li>Apple Speech recognition availability for your locale</li>
+          <li>Microphone and speech recognition permission</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section download-panel">
+      <div>
+        <p class="eyebrow">Download</p>
+        <h2>Ready when you need captions.</h2>
+        <p>Download the latest DMG, drag Caption Crunch to Applications, and choose your preferred input device.</p>
+      </div>
+      <a class="button primary" href="https://github.com/rodhilton/CaptionCrunch/releases/latest/download/CaptionCrunch-latest.dmg">Download latest DMG</a>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Caption Crunch is source-available and shared at no charge for anyone who may find it useful.</p>
+    <p><a href="https://github.com/rodhilton/CaptionCrunch">GitHub repository</a></p>
+  </footer>
+</body>
+</html>
