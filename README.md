@@ -179,13 +179,9 @@ git push origin v0.1.2
 
 Replace `v0.1.2` with the version you are releasing. Pushing the tag triggers GitHub Actions to create the release entry and upload a downloadable DMG automatically.
 
-## Repository Hygiene
+## AI Notice
 
-Generated build outputs, DMGs, module caches, local environment files, and common AI-tool scratch folders are ignored in `.gitignore`.
-
-## Project Note
-
-Caption Crunch was vibe-coded, but it serves its purpose well and seems to work, so it is being shared with anyone who may have use for it at no charge.
+Caption Crunch was vibe-coded, but it serves its purpose well and seems to work, so it is being shared with anyone who may have use for it at no charge. I don't know Swift or how to write MacOS apps but really wanted to stop paying Notion $25/mo for their AI Meeting Notes feature and this enabled me to unsubscribe.
 
 ## License
 
