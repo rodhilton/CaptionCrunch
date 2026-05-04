@@ -4,16 +4,16 @@
 
 <p>
   Live captions and transcripts for macOS.
-  <a href="../../actions/workflows/ci.yml"><img src="../../actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <a href="../../actions/workflows/release.yml"><img src="../../actions/workflows/release.yml/badge.svg" alt="Release workflow status"></a>
+  <a href="https://github.com/rodhilton/CaptionCrunch/actions/workflows/ci.yml"><img src="https://github.com/rodhilton/CaptionCrunch/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/rodhilton/CaptionCrunch/actions/workflows/release.yml"><img src="https://github.com/rodhilton/CaptionCrunch/actions/workflows/release.yml/badge.svg" alt="Release workflow status"></a>
 </p>
 
 Caption Crunch is a small native Mac app that turns speech from a chosen input device into live, readable captions. It is built for tabletop games, calls, streams, interviews, accessibility experiments, and any moment where you want a local caption window without opening a full meeting app.
 
 Caption Crunch is local-first: transcripts stay on your Mac, the app does not upload your audio or text to a cloud service, and normal recording/import transcription does not require an internet connection.
 
-[Download the latest DMG](../../releases/latest/download/CaptionCrunch-latest.dmg)  
-[View all releases](../../releases)
+[Download the latest DMG](https://github.com/rodhilton/CaptionCrunch/releases/latest/download/CaptionCrunch-latest.dmg)  
+[View all releases](https://github.com/rodhilton/CaptionCrunch/releases)
 
 <p>
   <img src="docs/assets/main-window.png" width="900" style="max-width: 100%;" alt="Caption Crunch main window">
