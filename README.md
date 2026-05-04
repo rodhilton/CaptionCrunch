@@ -15,6 +15,12 @@ Caption Crunch is local-first: transcripts stay on your Mac, the app does not up
 [Download the latest DMG](https://github.com/rodhilton/CaptionCrunch/releases/latest/download/CaptionCrunch-latest.dmg)  
 [View all releases](https://github.com/rodhilton/CaptionCrunch/releases)
 
+### Opening on macOS
+
+I do not pay for an Apple Developer license for this free app, so macOS may block Caption Crunch the first time you open it because it is not signed/notarized by Apple. If you trust this download, try opening it once, then go to `System Settings > Privacy & Security`, scroll to the Security section, and choose `Open Anyway`. You can also try Control-clicking or right-clicking `Caption Crunch.app` in Finder and choosing `Open`.
+
+Apple documents this manual approval flow here: [Safely open apps on your Mac](https://support.apple.com/en-us/HT202491).
+
 <p>
   <img src="docs/assets/main-window.png" width="900" style="max-width: 100%;" alt="Caption Crunch main window">
 </p>
